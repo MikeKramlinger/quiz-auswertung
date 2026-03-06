@@ -1,0 +1,414 @@
+:root {
+  color-scheme: light dark;
+  font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+body.app-loading .layout {
+  opacity: 0;
+}
+
+.layout {
+  transition: opacity 120ms ease;
+}
+
+.layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.hero-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: #93c5fd;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.hero p {
+  margin: 8px 0 0;
+  color: #94a3b8;
+}
+
+.card {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.uploader {
+  border: 2px dashed #334155;
+  padding: 12px 14px;
+}
+
+.uploader-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.uploader-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.uploader-head p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.uploader.is-dragover {
+  border-color: #3b82f6;
+  background: #0f1d38;
+}
+
+.actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+button {
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: inherit;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.status {
+  margin: 8px 0 0;
+  color: #cbd5e1;
+  font-size: 0.92rem;
+}
+
+.hint {
+  color: #93a6c2;
+  margin: 6px 0 10px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tab {
+  background: transparent;
+}
+
+.tab.is-active {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #eff6ff;
+}
+
+.grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.stat p {
+  margin: 8px 0 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid #243042;
+  vertical-align: top;
+}
+
+th {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+tr.is-clickable {
+  cursor: pointer;
+}
+
+tr.is-clickable:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+tr.is-selected {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+.file-col {
+  position: relative;
+  padding-right: 44px;
+}
+
+.session-remove-inline {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+tr.is-clickable:hover .session-remove-inline,
+tr.is-clickable:focus-within .session-remove-inline {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.print-report {
+  display: none;
+}
+
+body.printing-report {
+  background: #ffffff;
+  color: #111111;
+}
+
+body.printing-report .layout {
+  display: none;
+}
+
+body.printing-report .print-report {
+  display: block;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #111111;
+  background: #ffffff;
+}
+
+body.printing-report .print-report .meta {
+  margin: 0 0 14px;
+  color: #444;
+  font-size: 13px;
+}
+
+body.printing-report .print-report .stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+body.printing-report .print-report .stat {
+  border: 1px solid #c8ced8;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+body.printing-report .print-report .stat .value {
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+body.printing-report .print-report section {
+  margin-bottom: 20px;
+}
+
+body.printing-report .print-report table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+body.printing-report .print-report th,
+body.printing-report .print-report td {
+  text-align: left;
+  padding: 7px 6px;
+  border-bottom: 1px solid #d8dde5;
+  font-size: 12px;
+  color: #111111;
+  vertical-align: top;
+}
+
+body.printing-report .print-report .empty {
+  color: #555;
+  font-size: 12px;
+  margin: 0;
+}
+
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  body {
+    background: #ffffff;
+    color: #111111;
+  }
+
+  body.printing-report .layout {
+    display: none !important;
+  }
+
+  body.printing-report .print-report {
+    display: block !important;
+  }
+}
+
+#task-details {
+  display: grid;
+  gap: 12px;
+}
+
+.task-detail {
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.task-detail h4 {
+  margin: 0 0 8px;
+}
+
+.task-detail p {
+  margin: 4px 0;
+}
+
+.task-detail pre {
+  margin: 8px 0 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: #0b1220;
+  border: 1px solid #27344a;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (prefers-color-scheme: light) {
+  body {
+    background: #f8fafc;
+    color: #0f172a;
+  }
+
+  .hero p {
+    color: #475569;
+  }
+
+  .uploader-head p {
+    color: #475569;
+  }
+
+  .back-link {
+    color: #1d4ed8;
+  }
+
+  .card {
+    background: #ffffff;
+    border-color: #cbd5e1;
+  }
+
+  .uploader {
+    border-color: #94a3b8;
+  }
+
+  .uploader.is-dragover {
+    border-color: #2563eb;
+    background: #eff6ff;
+  }
+
+  button {
+    background: #f8fafc;
+    border-color: #94a3b8;
+  }
+
+  .status {
+    color: #334155;
+  }
+
+  .hint {
+    color: #475569;
+  }
+
+  th,
+  td {
+    border-bottom-color: #dbeafe;
+  }
+
+  th {
+    color: #1d4ed8;
+  }
+
+  tr.is-clickable:hover {
+    background: #dbeafe;
+  }
+
+  tr.is-selected {
+    background: #bfdbfe;
+  }
+
+  .task-detail {
+    border-color: #cbd5e1;
+  }
+
+  .task-detail pre {
+    background: #f8fafc;
+    border-color: #dbeafe;
+  }
+
+  .tab.is-active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #eff6ff;
+  }
+}

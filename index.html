@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quiz-Auswertung</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body class="app-loading">
+    <main class="layout">
+      <header class="hero">
+        <div class="hero-head">
+          <h1>Quiz-Auswertung</h1>
+          <button id="export-pdf" type="button">PDF-Bericht</button>
+        </div>
+      </header>
+
+      <section class="card uploader" id="drop-zone">
+        <div class="uploader-head">
+          <h2>Dateien laden</h2>
+          <p>JSON-Dateien oder ganzen Ordner per Drag &amp; Drop laden.</p>
+        </div>
+        <div class="actions">
+          <button id="pick-files" type="button">Dateien auswählen</button>
+          <button id="pick-folder" type="button">Ordner auswählen</button>
+          <input id="file-input" type="file" accept="application/json,.json" multiple hidden />
+          <input id="folder-input" type="file" accept="application/json,.json" multiple webkitdirectory directory hidden />
+        </div>
+        <p id="load-status" class="status" aria-live="polite">Noch keine Daten geladen.</p>
+      </section>
+
+      <section class="grid">
+        <article class="card stat">
+          <h3>Dateien</h3>
+          <p id="stat-files">0</p>
+        </article>
+        <article class="card stat">
+          <h3>Versuche</h3>
+          <p id="stat-attempts">0</p>
+        </article>
+        <article class="card stat">
+          <h3>Erfolgsquote</h3>
+          <p id="stat-success">0%</p>
+        </article>
+      </section>
+
+      <section class="card" id="session-summary-section" hidden>
+        <h2>Quiz-Durchläufe</h2>
+        <p class="hint">Zeile anklicken für Detailansicht.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Datei</th>
+                <th>Beantwortet</th>
+                <th>Person</th>
+                <th>Exportzeit</th>
+                <th>Versuche</th>
+                <th>Erfolg</th>
+              </tr>
+            </thead>
+            <tbody id="session-summary-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="overview-section" hidden>
+        <h2>Übersicht pro Aufgabe</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Aufgabe</th>
+                <th>Versuche</th>
+                <th>Erfolg</th>
+                <th>Quote</th>
+                <th>Ø Zeit</th>
+              </tr>
+            </thead>
+            <tbody id="overview-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="failed-checks-section" hidden>
+        <h2>Häufigste Fehlchecks</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fehlcheck</th>
+                <th>Häufigkeit</th>
+              </tr>
+            </thead>
+            <tbody id="failed-checks-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <section id="print-report" class="print-report" aria-hidden="true"></section>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
