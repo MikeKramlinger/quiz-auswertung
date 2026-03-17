@@ -486,7 +486,6 @@ const render = (): void => {
     taskIds.forEach((taskId) => {
       const taskStat = taskStatsByTaskId.get(taskId);
       const answeredAttempts = taskStat?.count ?? 0;
-      const consideredAttempts = answeredAttempts > 0 ? answeredAttempts : 1;
       const durationMsFromState = session.taskStates?.[taskId]?.elapsedMs;
       const totalDurationMsForTask = typeof durationMsFromState === "number"
         ? durationMsFromState
@@ -498,7 +497,7 @@ const render = (): void => {
         totalDurationMs: 0,
       };
 
-      current.attempts += consideredAttempts;
+      current.attempts += answeredAttempts;
       current.success += successByTaskId.get(taskId) ?? 0;
       current.totalDurationMs += totalDurationMsForTask;
 

@@ -49,6 +49,8 @@ const tabOverview = document.querySelector<HTMLButtonElement>("#tab-overview");
 const panelAblauf = document.querySelector<HTMLElement>("#panel-ablauf");
 const panelOverview = document.querySelector<HTMLElement>("#panel-overview");
 const timelineBody = document.querySelector<HTMLTableSectionElement>("#timeline-body");
+const attemptDetailSection = document.querySelector<HTMLElement>("#attempt-detail-section");
+const attemptDetail = document.querySelector<HTMLDivElement>("#attempt-detail");
 const taskDetails = document.querySelector<HTMLDivElement>("#task-details");
 const summaryBody = document.querySelector<HTMLTableSectionElement>("#summary-body");
 const kpiAvgAttempts = document.querySelector<HTMLParagraphElement>("#kpi-avg-attempts");
@@ -63,6 +65,8 @@ if (
   !panelAblauf ||
   !panelOverview ||
   !timelineBody ||
+  !attemptDetailSection ||
+  !attemptDetail ||
   !taskDetails ||
   !summaryBody ||
   !kpiAvgAttempts ||
@@ -103,6 +107,85 @@ const formatDuration = (milliseconds: number): string => {
     return `${seconds}s`;
   }
   return `${minutes}m ${seconds}s`;
+};
+
+const formatAttemptDuration = (milliseconds: number | undefined): string => {
+  if (typeof milliseconds !== "number" || !Number.isFinite(milliseconds) || milliseconds < 0) {
+    return "-";
+  }
+  return formatDuration(milliseconds);
+};
+
+const buildAttemptDurationMap = (attempts: QuizAttemptRecord[]): Map<QuizAttemptRecord, number | undefined> => {
+  const durations = new Map<QuizAttemptRecord, number | undefined>();
+  const previousElapsedByTask = new Map<string, number>();
+
+  attempts.forEach((attempt) => {
+    if (typeof attempt.taskElapsedMs !== "number" || !Number.isFinite(attempt.taskElapsedMs) || attempt.taskElapsedMs < 0) {
+      durations.set(attempt, undefined);
+      return;
+    }
+
+    const previous = previousElapsedByTask.get(attempt.taskId);
+    const delta = previous !== undefined && attempt.taskElapsedMs >= previous
+      ? attempt.taskElapsedMs - previous
+      : attempt.taskElapsedMs;
+
+    previousElapsedByTask.set(attempt.taskId, attempt.taskElapsedMs);
+    durations.set(attempt, delta);
+  });
+
+  return durations;
+};
+
+const clearSelectedTimelineRows = (rows: HTMLTableRowElement[]): void => {
+  rows.forEach((row) => row.classList.remove("is-selected"));
+};
+
+const setSelectedTimelineRow = (rows: HTMLTableRowElement[], selected: HTMLTableRowElement): void => {
+  clearSelectedTimelineRows(rows);
+  selected.classList.add("is-selected");
+};
+
+const renderNoAttemptSelected = (): void => {
+  attemptDetailSection.hidden = true;
+  attemptDetail.innerHTML = "";
+};
+
+const renderAttemptDetail = (attempt: QuizAttemptRecord, attemptDurationMs: number | undefined): void => {
+  attemptDetailSection.hidden = false;
+  attemptDetail.innerHTML = "";
+
+  const meta = document.createElement("p");
+  meta.textContent = `${formatDate(attempt.timestamp)} | ${attempt.taskTitle} (${attempt.taskId})`;
+
+  const result = document.createElement("p");
+  result.textContent = `Ergebnis: ${attempt.result.success ? "✅ erfüllt" : `${attempt.result.message}`}`;
+
+  const duration = document.createElement("p");
+  duration.textContent = `Dauer dieses Versuchs: ${formatAttemptDuration(attemptDurationMs)}`;
+
+  const answerTitle = document.createElement("p");
+  answerTitle.textContent = "Antwort:";
+
+  const pre = document.createElement("pre");
+  pre.textContent = attempt.dataModelOrAnswer || "(leer)";
+
+  attemptDetail.append(meta, result, duration, answerTitle, pre);
+
+  const failedChecks = attempt.result.failedChecks ?? [];
+  if (failedChecks.length > 0) {
+    const failed = document.createElement("p");
+    failed.textContent = `Fehlchecks: ${failedChecks.join(" | ")}`;
+    attemptDetail.append(failed);
+  }
+
+  const passedChecks = attempt.result.passedChecks ?? [];
+  if (passedChecks.length > 0) {
+    const passed = document.createElement("p");
+    passed.textContent = `Bestandene Checks: ${passedChecks.join(" | ")}`;
+    attemptDetail.append(passed);
+  }
 };
 
 const computeTaskStats = (attempts: QuizAttemptRecord[]) => {
@@ -159,18 +242,52 @@ if (!raw) {
     const bTime = parseTimestamp(b.timestamp) ?? 0;
     return aTime - bTime;
   });
+  const attemptDurationByAttempt = buildAttemptDurationMap(attemptsSorted);
 
   timelineBody.innerHTML = "";
+  const timelineRows: HTMLTableRowElement[] = [];
   attemptsSorted.forEach((attempt, index) => {
     const row = document.createElement("tr");
+    row.classList.add("is-clickable");
+    row.tabIndex = 0;
     row.append(
       textCell(String(index + 1)),
       textCell(formatDate(attempt.timestamp)),
       textCell(`${attempt.taskTitle} (${attempt.taskId})`),
       textCell(attempt.result.success ? "✅ erfüllt" : `${attempt.result.message}`),
+      textCell(formatAttemptDuration(attemptDurationByAttempt.get(attempt))),
     );
+    row.addEventListener("click", () => {
+      if (row.classList.contains("is-selected")) {
+        clearSelectedTimelineRows(timelineRows);
+        renderNoAttemptSelected();
+        return;
+      }
+      setSelectedTimelineRow(timelineRows, row);
+      renderAttemptDetail(attempt, attemptDurationByAttempt.get(attempt));
+    });
+    row.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      event.preventDefault();
+      if (row.classList.contains("is-selected")) {
+        clearSelectedTimelineRows(timelineRows);
+        renderNoAttemptSelected();
+        return;
+      }
+      setSelectedTimelineRow(timelineRows, row);
+      renderAttemptDetail(attempt, attemptDurationByAttempt.get(attempt));
+    });
+    timelineRows.push(row);
     timelineBody.append(row);
   });
+
+  if (attemptsSorted.length > 0) {
+    renderNoAttemptSelected();
+  } else {
+    renderNoAttemptSelected();
+  }
 
   const taskStats = computeTaskStats(attemptsSorted);
   const taskStatById = new Map(taskStats.map((entry) => [entry.taskId, entry]));
@@ -179,19 +296,25 @@ if (!raw) {
     ? [...session.tasks]
     : [...taskStats].map((entry) => ({ id: entry.taskId, title: entry.title, description: entry.question })))
 
-  const taskDurationsMs = tasksForDisplay.map((task) => {
+  const taskDurationsMsByTaskId = new Map<string, number>();
+  tasksForDisplay.forEach((task) => {
     const stat = taskStatById.get(task.id);
     const taskState = session.taskStates?.[task.id];
-    return typeof taskState?.elapsedMs === "number" ? taskState.elapsedMs : stat?.durationMs ?? 0;
+    const durationMs = typeof taskState?.elapsedMs === "number" ? taskState.elapsedMs : stat?.durationMs ?? 0;
+    taskDurationsMsByTaskId.set(task.id, durationMs);
   });
 
+  const attemptedTaskIds = new Set(taskStats.filter((stat) => stat.attemptsCount > 0).map((stat) => stat.taskId));
+  const attemptedTaskDurationsMs = [...attemptedTaskIds].map((taskId) => taskDurationsMsByTaskId.get(taskId) ?? 0);
+  const attemptedTasksForDetail = tasksForDisplay.filter((task) => attemptedTaskIds.has(task.id));
+
   taskDetails.innerHTML = "";
-  tasksForDisplay.forEach((task, displayIndex) => {
+  attemptedTasksForDetail.forEach((task, displayIndex) => {
     const stat = taskStatById.get(task.id);
     const taskState = session.taskStates?.[task.id];
     const finalAnswer = stat?.latest.dataModelOrAnswer ?? taskState?.dataText ?? "";
     const attemptCount = stat?.attemptsCount ?? 0;
-    const durationMs = typeof taskState?.elapsedMs === "number" ? taskState.elapsedMs : stat?.durationMs ?? 0;
+    const durationMs = taskDurationsMsByTaskId.get(task.id) ?? 0;
     const finalSuccess = stat?.finalSuccess ?? false;
     const finalMessage = stat?.latest.result.message ?? taskState?.feedback ?? "Keine Bewertung gespeichert.";
 
@@ -236,20 +359,35 @@ if (!raw) {
     taskDetails.append(wrapper);
   });
 
+  if (attemptedTasksForDetail.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "status";
+    empty.textContent = "Keine abgegebenen Versuche vorhanden.";
+    taskDetails.append(empty);
+  }
+
   summaryBody.innerHTML = "";
   tasksForDisplay.forEach((task) => {
     const stat = taskStatById.get(task.id);
     const taskState = session.taskStates?.[task.id];
     const finalAnswer = stat?.latest.dataModelOrAnswer ?? taskState?.dataText ?? "";
-    const compactAnswer = finalAnswer.replace(/\s+/g, " ").slice(0, 120);
-    const durationMs = typeof taskState?.elapsedMs === "number" ? taskState.elapsedMs : stat?.durationMs ?? 0;
+    const durationMs = taskDurationsMsByTaskId.get(task.id) ?? 0;
     const row = document.createElement("tr");
+    const answerCell = document.createElement("td");
+    const answerDetails = document.createElement("details");
+    answerDetails.className = "answer-details";
+    const answerSummary = document.createElement("summary");
+    answerSummary.textContent = "Antwort anzeigen";
+    const answerPre = document.createElement("pre");
+    answerPre.textContent = finalAnswer || "(leer)";
+    answerDetails.append(answerSummary, answerPre);
+    answerCell.append(answerDetails);
     row.append(
       textCell(`${task.title} (${task.id})`),
       textCell(String(stat?.attemptsCount ?? 0)),
       textCell(stat?.finalSuccess ? "✅" : "❌"),
       textCell(formatDuration(durationMs)),
-      textCell(compactAnswer.length > 0 ? compactAnswer : "(leer)"),
+      answerCell,
     );
     summaryBody.append(row);
   });
@@ -257,15 +395,10 @@ if (!raw) {
   const avgAttempts = taskStats.length > 0
     ? taskStats.reduce((sum, stat) => sum + stat.attemptsCount, 0) / taskStats.length
     : 0;
-  const avgTime = taskDurationsMs.length > 0
-    ? taskDurationsMs.reduce((sum, value) => sum + value, 0) / taskDurationsMs.length
+  const avgTime = attemptedTaskDurationsMs.length > 0
+    ? attemptedTaskDurationsMs.reduce((sum, value) => sum + value, 0) / attemptedTaskDurationsMs.length
     : 0;
-
-  const allTimes = attemptsSorted
-    .map((entry) => parseTimestamp(entry.timestamp))
-    .filter((value): value is number => value !== null)
-    .sort((a, b) => a - b);
-  const totalDuration = allTimes.length > 0 ? Math.max(0, allTimes[allTimes.length - 1]! - allTimes[0]!) : 0;
+  const totalDuration = attemptedTaskDurationsMs.reduce((sum, value) => sum + value, 0);
 
   kpiAvgAttempts.textContent = avgAttempts.toFixed(2);
   kpiAvgTime.textContent = formatDuration(avgTime);

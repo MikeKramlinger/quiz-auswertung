@@ -335,6 +335,25 @@ body.printing-report .print-report .empty {
   word-break: break-word;
 }
 
+.answer-details {
+  max-width: 460px;
+}
+
+.answer-details summary {
+  cursor: pointer;
+  color: #93c5fd;
+}
+
+.answer-details[open] summary {
+  margin-bottom: 6px;
+}
+
+.answer-details pre {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+}
+
 @media (prefers-color-scheme: light) {
   body {
     background: #f8fafc;
@@ -404,6 +423,10 @@ body.printing-report .print-report .empty {
   .task-detail pre {
     background: #f8fafc;
     border-color: #dbeafe;
+  }
+
+  .answer-details summary {
+    color: #1d4ed8;
   }
 
   .tab.is-active {

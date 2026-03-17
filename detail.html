@@ -23,9 +23,23 @@
         <h2>Ablauf</h2>
         <div class="table-wrap">
           <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Zeitpunkt</th>
+                <th>Aufgabe</th>
+                <th>Ergebnis</th>
+                <th>Dauer Versuch</th>
+              </tr>
+            </thead>
             <tbody id="timeline-body"></tbody>
           </table>
         </div>
+
+        <section id="attempt-detail-section" hidden>
+          <h2>Ausgewählter Versuch</h2>
+          <article id="attempt-detail" class="task-detail"></article>
+        </section>
 
         <h2>Aufgaben-Details</h2>
         <div id="task-details"></div>
@@ -56,7 +70,7 @@
                 <th>Versuche</th>
                 <th>Erfolg</th>
                 <th>Dauer</th>
-                <th>Finale Antwort (gekürzt)</th>
+                <th>Finale Antwort</th>
               </tr>
             </thead>
             <tbody id="summary-body"></tbody>
