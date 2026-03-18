@@ -39,6 +39,11 @@ interface QuizTaskSessionState {
   feedback: string;
   elapsedMs?: number;
   isCompleted?: boolean;
+  answerHistory?: Array<{
+    timestamp: string;
+    elapsedMs: number;
+    answer: string;
+  }>;
 }
 
 interface LoadedSession {
@@ -145,6 +150,25 @@ const parseSessionExport = (raw: string): QuizSessionExport => {
       feedback: typeof typed.feedback === "string" ? typed.feedback : "",
       elapsedMs: typeof typed.elapsedMs === "number" ? typed.elapsedMs : undefined,
       isCompleted: typeof typed.isCompleted === "boolean" ? typed.isCompleted : undefined,
+      answerHistory: Array.isArray(typed.answerHistory)
+        ? typed.answerHistory
+          .map((entry) => {
+            const typedEntry = entry as { timestamp?: unknown; elapsedMs?: unknown; answer?: unknown };
+            if (
+              typeof typedEntry?.timestamp !== "string"
+              || typeof typedEntry?.elapsedMs !== "number"
+              || typeof typedEntry?.answer !== "string"
+            ) {
+              return null;
+            }
+            return {
+              timestamp: typedEntry.timestamp,
+              elapsedMs: typedEntry.elapsedMs,
+              answer: typedEntry.answer,
+            };
+          })
+          .filter((entry): entry is { timestamp: string; elapsedMs: number; answer: string } => entry !== null)
+        : undefined,
     };
   });
 
