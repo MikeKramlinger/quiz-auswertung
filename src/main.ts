@@ -20,6 +20,9 @@ export {};
 interface QuizSessionExport {
   format: "cfc-quiz-session-v1";
   exportedAt: string;
+  participant?: {
+    name?: string;
+  };
   tasks: QuizTask[];
   session: {
     activeIndex: number;
@@ -175,6 +178,10 @@ const parseSessionExport = (raw: string): QuizSessionExport => {
   return {
     format: "cfc-quiz-session-v1",
     exportedAt: typeof parsed.exportedAt === "string" ? parsed.exportedAt : "unbekannt",
+    participant:
+      parsed.participant && typeof parsed.participant === "object" && typeof parsed.participant.name === "string"
+        ? { name: parsed.participant.name }
+        : undefined,
     attempts: parsed.attempts as QuizAttemptRecord[],
     tasks,
     session:
@@ -249,10 +256,13 @@ const removeSessionById = (sessionId: string): void => {
   render();
 };
 
-const parsePersonName = (fileName: string): string => {
-  const noExt = fileName.replace(/\.json$/i, "");
-  const match = noExt.match(/person-([a-z0-9_-]+)/i);
-  return match?.[1] ?? "unbekannt";
+const resolvePersonName = (sessionExport: QuizSessionExport, fileName: string): string => {
+  void fileName;
+  const participantName = sessionExport.participant?.name?.trim();
+  if (participantName && participantName.length > 0) {
+    return participantName;
+  }
+  return "unbekannt";
 };
 
 const parseQuizName = (sessionExport: QuizSessionExport): string => {
@@ -640,7 +650,7 @@ const loadFiles = async (files: FileList | File[]): Promise<void> => {
         fileName: file.name,
         exportedAt: parsed.exportedAt,
         quizName: parseQuizName(parsed),
-        personName: parsePersonName(file.name),
+        personName: resolvePersonName(parsed, file.name),
         tasks: parsed.tasks,
         taskStates: parsed.session.taskStates,
         attempts: parsed.attempts,
