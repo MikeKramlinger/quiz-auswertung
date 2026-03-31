@@ -49,14 +49,43 @@ const tabOverview = document.querySelector<HTMLButtonElement>("#tab-overview");
 const panelAblauf = document.querySelector<HTMLElement>("#panel-ablauf");
 const panelOverview = document.querySelector<HTMLElement>("#panel-overview");
 const timelineBody = document.querySelector<HTMLTableSectionElement>("#timeline-body");
-const attemptDetailSection = document.querySelector<HTMLElement>("#attempt-detail-section");
-const attemptDetail = document.querySelector<HTMLDivElement>("#attempt-detail");
+let attemptDetailSection = document.querySelector<HTMLElement>("#attempt-detail-section");
+let attemptDetail = document.querySelector<HTMLElement>("#attempt-detail");
 const taskDetails = document.querySelector<HTMLDivElement>("#task-details");
 const summaryBody = document.querySelector<HTMLTableSectionElement>("#summary-body");
 const kpiAvgAttempts = document.querySelector<HTMLParagraphElement>("#kpi-avg-attempts");
 const kpiAvgTime = document.querySelector<HTMLParagraphElement>("#kpi-avg-time");
 const kpiTotalTime = document.querySelector<HTMLParagraphElement>("#kpi-total-time");
 const detailError = document.querySelector<HTMLParagraphElement>("#detail-error");
+
+const revealLayout = (): void => {
+  document.body.classList.remove("app-loading");
+};
+
+const ensureAttemptDetailElements = (): void => {
+  if (attemptDetailSection && attemptDetail) {
+    return;
+  }
+  if (!panelAblauf || !taskDetails) {
+    return;
+  }
+
+  const section = document.createElement("section");
+  section.id = "attempt-detail-section";
+  section.hidden = true;
+
+  const heading = document.createElement("h2");
+  heading.textContent = "Ausgewählter Versuch";
+  const article = document.createElement("article");
+  article.id = "attempt-detail";
+  article.className = "task-detail";
+
+  section.append(heading, article);
+  panelAblauf.insertBefore(section, taskDetails);
+
+  attemptDetailSection = section;
+  attemptDetail = article;
+};
 
 if (
   !detailMeta ||
@@ -65,8 +94,6 @@ if (
   !panelAblauf ||
   !panelOverview ||
   !timelineBody ||
-  !attemptDetailSection ||
-  !attemptDetail ||
   !taskDetails ||
   !summaryBody ||
   !kpiAvgAttempts ||
@@ -74,8 +101,11 @@ if (
   !kpiTotalTime ||
   !detailError
 ) {
+  revealLayout();
   throw new Error("Detailansicht konnte nicht initialisiert werden.");
 }
+
+ensureAttemptDetailElements();
 
 const textCell = (value: string): HTMLTableCellElement => {
   const cell = document.createElement("td");
@@ -95,6 +125,8 @@ const parseTimestamp = (iso: string): number | null => {
   const value = new Date(iso).getTime();
   return Number.isFinite(value) ? value : null;
 };
+
+const isKpiRelevantAttempt = (attempt: QuizAttemptRecord): boolean => attempt.taskKind !== "open";
 
 const formatDuration = (milliseconds: number): string => {
   if (!Number.isFinite(milliseconds) || milliseconds <= 0) {
@@ -148,11 +180,17 @@ const setSelectedTimelineRow = (rows: HTMLTableRowElement[], selected: HTMLTable
 };
 
 const renderNoAttemptSelected = (): void => {
+  if (!attemptDetailSection || !attemptDetail) {
+    return;
+  }
   attemptDetailSection.hidden = true;
   attemptDetail.innerHTML = "";
 };
 
 const renderAttemptDetail = (attempt: QuizAttemptRecord, attemptDurationMs: number | undefined): void => {
+  if (!attemptDetailSection || !attemptDetail) {
+    return;
+  }
   attemptDetailSection.hidden = false;
   attemptDetail.innerHTML = "";
 
@@ -229,12 +267,18 @@ const activateTab = (tab: "ablauf" | "overview") => {
 };
 
 const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
-if (!raw) {
+const showDetailError = (message: string): void => {
+  detailError.textContent = message;
   detailError.hidden = false;
   panelAblauf.hidden = true;
   panelOverview.hidden = true;
-} else {
-  const session = JSON.parse(raw) as LoadedSession;
+};
+
+try {
+  if (!raw) {
+    showDetailError("Kein Durchlauf ausgewählt.");
+  } else {
+    const session = JSON.parse(raw) as LoadedSession;
   detailMeta.textContent = `${session.fileName} | Quiz: ${session.quizName} | Person: ${session.personName} | Export: ${formatDate(session.exportedAt)}`;
 
   const attemptsSorted = [...session.attempts].sort((a, b) => {
@@ -258,13 +302,17 @@ if (!raw) {
       textCell(formatAttemptDuration(attemptDurationByAttempt.get(attempt))),
     );
     row.addEventListener("click", () => {
-      if (row.classList.contains("is-selected")) {
-        clearSelectedTimelineRows(timelineRows);
+      try {
+        if (row.classList.contains("is-selected")) {
+          clearSelectedTimelineRows(timelineRows);
+          renderNoAttemptSelected();
+          return;
+        }
+        setSelectedTimelineRow(timelineRows, row);
+        renderAttemptDetail(attempt, attemptDurationByAttempt.get(attempt));
+      } catch {
         renderNoAttemptSelected();
-        return;
       }
-      setSelectedTimelineRow(timelineRows, row);
-      renderAttemptDetail(attempt, attemptDurationByAttempt.get(attempt));
     });
     row.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") {
@@ -392,17 +440,25 @@ if (!raw) {
     summaryBody.append(row);
   });
 
-  const avgAttempts = taskStats.length > 0
-    ? taskStats.reduce((sum, stat) => sum + stat.attemptsCount, 0) / taskStats.length
+  const kpiAttemptsSorted = attemptsSorted.filter(isKpiRelevantAttempt);
+  const kpiTaskStats = computeTaskStats(kpiAttemptsSorted);
+  const kpiTaskIds = new Set(kpiTaskStats.map((stat) => stat.taskId));
+  const kpiTaskDurationsMs = [...kpiTaskIds].map((taskId) => taskDurationsMsByTaskId.get(taskId) ?? 0);
+
+  const avgAttempts = kpiTaskStats.length > 0
+    ? kpiTaskStats.reduce((sum, stat) => sum + stat.attemptsCount, 0) / kpiTaskStats.length
     : 0;
-  const avgTime = attemptedTaskDurationsMs.length > 0
-    ? attemptedTaskDurationsMs.reduce((sum, value) => sum + value, 0) / attemptedTaskDurationsMs.length
+  const avgTime = kpiTaskDurationsMs.length > 0
+    ? kpiTaskDurationsMs.reduce((sum, value) => sum + value, 0) / kpiTaskDurationsMs.length
     : 0;
-  const totalDuration = attemptedTaskDurationsMs.reduce((sum, value) => sum + value, 0);
+  const totalDuration = kpiTaskDurationsMs.reduce((sum, value) => sum + value, 0);
 
   kpiAvgAttempts.textContent = avgAttempts.toFixed(2);
   kpiAvgTime.textContent = formatDuration(avgTime);
   kpiTotalTime.textContent = formatDuration(totalDuration);
+}
+} catch {
+  showDetailError("Detailansicht konnte nicht geladen werden.");
 }
 
 tabAblauf.addEventListener("click", () => activateTab("ablauf"));
@@ -411,6 +467,6 @@ activateTab("ablauf");
 
 requestAnimationFrame(() => {
   requestAnimationFrame(() => {
-    document.body.classList.remove("app-loading");
+    revealLayout();
   });
 });

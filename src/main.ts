@@ -345,6 +345,48 @@ const parseTimestamp = (iso: string): number | null => {
   return Number.isFinite(value) ? value : null;
 };
 
+const isOpenTask = (attempt: QuizAttemptRecord): boolean => attempt.taskKind === "open";
+
+const isSubmittedOpenAttempt = (attempt: QuizAttemptRecord): boolean => isOpenTask(attempt) && attempt.taskCompleted === true;
+
+const getLatestSubmittedOpenAttemptsByTaskId = (attempts: QuizAttemptRecord[]): Map<string, QuizAttemptRecord> => {
+  const latestByTaskId = new Map<string, QuizAttemptRecord>();
+
+  attempts.forEach((attempt) => {
+    if (!isSubmittedOpenAttempt(attempt)) {
+      return;
+    }
+
+    const previous = latestByTaskId.get(attempt.taskId);
+    if (!previous) {
+      latestByTaskId.set(attempt.taskId, attempt);
+      return;
+    }
+
+    const previousTime = parseTimestamp(previous.timestamp) ?? Number.NEGATIVE_INFINITY;
+    const currentTime = parseTimestamp(attempt.timestamp) ?? Number.NEGATIVE_INFINITY;
+    if (currentTime >= previousTime) {
+      latestByTaskId.set(attempt.taskId, attempt);
+    }
+  });
+
+  return latestByTaskId;
+};
+
+const getEffectiveAttemptCount = (attempts: QuizAttemptRecord[]): number => {
+  const nonOpenAttempts = attempts.filter((attempt) => !isOpenTask(attempt)).length;
+  const submittedOpenTaskCount = getLatestSubmittedOpenAttemptsByTaskId(attempts).size;
+  return nonOpenAttempts + submittedOpenTaskCount;
+};
+
+const getEffectiveSuccessCount = (attempts: QuizAttemptRecord[]): number => {
+  const nonOpenSuccess = attempts.filter((attempt) => !isOpenTask(attempt) && attempt.result.success).length;
+  const submittedOpenLatestSuccess = [...getLatestSubmittedOpenAttemptsByTaskId(attempts).values()].filter(
+    (attempt) => attempt.result.success,
+  ).length;
+  return nonOpenSuccess + submittedOpenLatestSuccess;
+};
+
 const computeTaskAttemptStats = (attempts: QuizAttemptRecord[]): Array<{ taskId: string; count: number; durationMs: number }> => {
   const byTask = new Map<string, QuizAttemptRecord[]>();
   attempts.forEach((attempt) => {
@@ -359,12 +401,20 @@ const computeTaskAttemptStats = (attempts: QuizAttemptRecord[]): Array<{ taskId:
       .map((attempt) => parseTimestamp(attempt.timestamp))
       .filter((value): value is number => value !== null)
       .sort((a, b) => a - b);
+    const elapsedValues = taskAttempts
+      .map((attempt) => attempt.taskElapsedMs)
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0);
     const first = timestamps[0] ?? 0;
     const last = timestamps[timestamps.length - 1] ?? first;
+    const durationFromElapsed = elapsedValues.length > 0 ? Math.max(...elapsedValues) : 0;
+    const durationFromTimestamps = Math.max(0, last - first);
+    const hasOpenAttempts = taskAttempts.some(isOpenTask);
+    const openSubmittedCount = hasOpenAttempts ? getLatestSubmittedOpenAttemptsByTaskId(taskAttempts).size : 0;
+    const nonOpenCount = taskAttempts.filter((attempt) => !isOpenTask(attempt)).length;
     stats.push({
       taskId,
-      count: taskAttempts.length,
-      durationMs: Math.max(0, last - first),
+      count: hasOpenAttempts ? nonOpenCount + openSubmittedCount : taskAttempts.length,
+      durationMs: durationFromElapsed > 0 ? durationFromElapsed : durationFromTimestamps,
     });
   });
 
@@ -433,16 +483,17 @@ const exportPdf = (): void => {
 
 const render = (): void => {
   const allAttempts = loadedSessions.flatMap((session) => session.attempts);
-  const successCount = allAttempts.filter((attempt) => attempt.result.success).length;
+  const successCount = loadedSessions.reduce((sum, session) => sum + getEffectiveSuccessCount(session.attempts), 0);
+  const effectiveAttemptCount = loadedSessions.reduce((sum, session) => sum + getEffectiveAttemptCount(session.attempts), 0);
 
   statFiles.textContent = String(loadedSessions.length);
-  statAttempts.textContent = String(allAttempts.length);
-  statSuccess.textContent = toPercent(successCount, allAttempts.length);
+  statAttempts.textContent = String(effectiveAttemptCount);
+  statSuccess.textContent = toPercent(successCount, effectiveAttemptCount);
 
   sessionSummaryBody.innerHTML = "";
   loadedSessions.forEach((session) => {
-    const total = session.attempts.length;
-    const success = session.attempts.filter((attempt) => attempt.result.success).length;
+    const total = getEffectiveAttemptCount(session.attempts);
+    const success = getEffectiveSuccessCount(session.attempts);
     const answeredTaskIds = new Set(session.attempts.map((attempt) => attempt.taskId));
     const totalTaskCount = session.tasks.length > 0 ? session.tasks.length : answeredTaskIds.size;
     const answeredRatio = `${answeredTaskIds.size}/${Math.max(1, totalTaskCount)}`;
@@ -493,12 +544,18 @@ const render = (): void => {
     const titleByTaskId = new Map(session.tasks.map((task) => [task.id, task.title]));
 
     const successByTaskId = new Map<string, number>();
+    const latestSubmittedOpenByTaskId = getLatestSubmittedOpenAttemptsByTaskId(session.attempts);
     session.attempts.forEach((attempt) => {
       if (!titleByTaskId.has(attempt.taskId)) {
         titleByTaskId.set(attempt.taskId, attempt.taskTitle);
       }
-      if (attempt.result.success) {
+      if (!isOpenTask(attempt) && attempt.result.success) {
         successByTaskId.set(attempt.taskId, (successByTaskId.get(attempt.taskId) ?? 0) + 1);
+      }
+    });
+    latestSubmittedOpenByTaskId.forEach((attempt, taskId) => {
+      if (attempt.result.success) {
+        successByTaskId.set(taskId, (successByTaskId.get(taskId) ?? 0) + 1);
       }
     });
 
@@ -510,10 +567,7 @@ const render = (): void => {
     taskIds.forEach((taskId) => {
       const taskStat = taskStatsByTaskId.get(taskId);
       const answeredAttempts = taskStat?.count ?? 0;
-      const durationMsFromState = session.taskStates?.[taskId]?.elapsedMs;
-      const totalDurationMsForTask = typeof durationMsFromState === "number"
-        ? durationMsFromState
-        : taskStat?.durationMs ?? 0;
+      const totalDurationMsForTask = taskStat?.durationMs ?? 0;
       const current = overviewMap.get(taskId) ?? {
         title: titleByTaskId.get(taskId) ?? taskId,
         attempts: 0,

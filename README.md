@@ -24,6 +24,8 @@ In diesem Projekt ist `src` als TypeScript-Quellordner gedacht (`.ts` + `.css`).
 - Mehrere JSON-Dateien per Datei-Auswahl oder Drag & Drop
 - Erwartetes Format: `cfc-quiz-session-v1`
 - Kennzahlen: Anzahl Dateien, Versuche, Erfolgsquote
+- Erfolgsquote bewertet nur nicht-offene Aufgaben (`taskKind !== "open"`).
+- Zeit- und Versuchsanzahlen bleiben unverändert und werden nicht separat für offene Fragen ausgewiesen.
 - Tabellen:
   - Aufgaben-Übersicht (Versuche/Erfolg/Quote)
   - Durchlauf-Übersicht pro Datei (anklickbar)
